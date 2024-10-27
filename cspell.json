@@ -12,7 +12,8 @@
         // Golang words
         "goenv",
         "tidwall",
-        "gjson"
+        "gjson",
+        "sjson"
     ],
     "ignoreWords": [],
     "import": []

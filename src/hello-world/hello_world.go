@@ -1,3 +1,6 @@
+// Description: The defacto starting point when learning any new language.
+// Follow tutorial from: https://fireship.io/lessons/learn-go-in-100-lines/
+
 package main // Required for a standalone executable.
 
 import "fmt" // fmt implements formatted I/O.

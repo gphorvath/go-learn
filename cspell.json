@@ -4,9 +4,15 @@
     "dictionaryDefinitions": [],
     "dictionaries": [],
     "words": [
+        // General repository words
+        "gphorvath",
         "commitlint",
+        "lycheeignore",
+
+        // Golang words
         "goenv",
-        "lycheeignore"
+        "tidwall",
+        "gjson"
     ],
     "ignoreWords": [],
     "import": []

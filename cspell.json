@@ -4,8 +4,9 @@
     "dictionaryDefinitions": [],
     "dictionaries": [],
     "words": [
-        "lycheeignore",
-        "commitlint"
+        "commitlint",
+        "goenv",
+        "lycheeignore"
     ],
     "ignoreWords": [],
     "import": []

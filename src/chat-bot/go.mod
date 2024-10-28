@@ -1,4 +1,4 @@
-module github.com/gphorvath/go-learn/openai
+module github.com/gphorvath/go-learn/chat-bot
 
 go 1.23.2
 

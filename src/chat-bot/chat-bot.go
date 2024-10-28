@@ -4,27 +4,99 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"go-learn/chat-bot/client"
 	"io"
 	"log"
 	"os"
 	"strings"
-
-	"github.com/openai/openai-go"
-	"github.com/openai/openai-go/option"
 )
 
-var contextWindow []string // Stores the context window for the conversation
+type Dispatcher struct {
+	activeClient string
+	clients      map[string]client.ChatClient
+	commands     map[string]func(string) string
+	context      []string
+}
 
-func createOpenAIClient() *openai.Client {
-	apiKey, exists := os.LookupEnv("OPENAI_API_KEY")
-
-	if !exists || apiKey == "" {
-		panic("OPENAI_API_KEY is not set")
+func NewDispatcher() *Dispatcher {
+	d := &Dispatcher{
+		activeClient: "mock",
+		clients: map[string]client.ChatClient{
+			"anthropic": client.NewAnthropic(),
+			"openai":    client.NewOpenAI(),
+			"mock": client.NewMock([]string{
+				"You are using the mock client. It doesn't do much, but it's here to help you test the chat bot.",
+				"Sure, I can help with that. What do you need?",
+				"Let me see what I can do. One moment please...",
+				"Here is the information you requested.",
+				"Is there anything else I can assist you with?",
+			}),
+		},
+		context: make([]string, 0),
 	}
 
-	return openai.NewClient(
-		option.WithAPIKey(apiKey),
-	)
+	d.commands = map[string]func(string) string{
+		"anthropic": d.switchClient,
+		"openai":    d.switchClient,
+		"mock":      d.switchClient,
+		"clear":     d.clearContext,
+		"help":      d.showHelp,
+		"exit":      d.exit,
+		"quit":      d.exit,
+	}
+
+	return d
+}
+
+func (d *Dispatcher) switchClient(clientName string) string {
+	d.activeClient = clientName
+	fmt.Printf("Switched to %s client.\n", clientName)
+	return ""
+}
+
+func (d *Dispatcher) clearContext(_ string) string {
+	d.context = []string{}
+	fmt.Println("Context window cleared.")
+	return ""
+}
+
+func (d *Dispatcher) exit(_ string) string {
+	fmt.Println("Exiting...")
+	os.Exit(0)
+	return ""
+}
+
+func (d *Dispatcher) showHelp(_ string) string {
+	fmt.Println("Available commands:")
+	fmt.Println("  anthropic - Switch to the Anthropic client")
+	fmt.Println("  openai    - Switch to the OpenAI client")
+	fmt.Println("  mock      - Switch to the mock client")
+	fmt.Println("  help      - Show this help message")
+	fmt.Println("  clear     - Clear the context window")
+	fmt.Println("  exit or quit  - Exit the program")
+	return ""
+}
+
+func (d *Dispatcher) getCurrentClient() client.ChatClient {
+	return d.clients[d.activeClient]
+}
+
+func (d *Dispatcher) dispatch(input string) string {
+	cmd := strings.ToLower(input)
+	if handler, exists := d.commands[cmd]; exists {
+		return handler(cmd)
+	}
+	return input
+}
+
+func (d *Dispatcher) buildPrompt(question string) string {
+	d.context = append(d.context, question)
+	return strings.Join(d.context, "\n")
+}
+
+func (d *Dispatcher) processResponse(response string) {
+	d.context = append(d.context, response)
+	println(response)
 }
 
 func getUserInput(prompt string) string {
@@ -39,75 +111,33 @@ func getUserInput(prompt string) string {
 		}
 	}
 
-	// Trim spaces and newline characters
-	input = strings.TrimSpace(input)
-
-	// Handle empty input
-	if len(input) == 0 {
-		return ""
-	}
-
-	return input
-}
-
-func processUserInput(input string) string {
-	switch strings.ToLower(input) {
-	case "exit", "quit":
-		fmt.Println("Exiting...")
-		os.Exit(0)
-		return ""
-	case "clear":
-		contextWindow = []string{}
-		fmt.Println("Context window cleared.")
-		return ""
-	case "help":
-		fmt.Println("Available commands:")
-		fmt.Println("  help  - Show this help message")
-		fmt.Println("  clear - Clear the context window")
-		fmt.Println("  exit or quit  - Exit the program")
-		return ""
-	default:
-		return input
-	}
-}
-
-func buildPrompt(question string) string {
-	contextWindow = append(contextWindow, question)
-	return strings.Join(contextWindow, "\n")
+	return strings.TrimSpace(input)
 }
 
 func main() {
-
-	client := createOpenAIClient()
+	dispatcher := NewDispatcher()
 	ctx := context.Background()
 
 	for {
 		userQuestion := getUserInput("Ask a question (or type 'help' for a list of options): ")
 
-		if processUserInput(userQuestion) == "" {
+		if processed := dispatcher.dispatch(userQuestion); processed == "" {
 			continue
 		}
 
-		llm_prompt := buildPrompt(userQuestion)
+		prompt := dispatcher.buildPrompt(userQuestion)
 
 		print("> ")
 		println(userQuestion)
 		println()
 
-		completion, err := client.Chat.Completions.New(ctx, openai.ChatCompletionNewParams{
-			Messages: openai.F([]openai.ChatCompletionMessageParamUnion{
-				openai.UserMessage(llm_prompt),
-			}),
-			Seed:  openai.Int(1),
-			Model: openai.F(openai.ChatModelGPT4o),
-		})
+		chatClient := dispatcher.getCurrentClient()
+		response, err := chatClient.Chat(ctx, prompt)
 		if err != nil {
 			log.Printf("Error getting completion: %v", err)
 			continue
 		}
 
-		contextWindow = append(contextWindow, completion.Choices[0].Message.Content)
-
-		println(completion.Choices[0].Message.Content)
+		dispatcher.processResponse(response)
 	}
 }

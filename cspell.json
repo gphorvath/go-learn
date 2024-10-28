@@ -13,7 +13,8 @@
         "goenv",
         "tidwall",
         "gjson",
-        "sjson"
+        "sjson",
+        "anthropics"
     ],
     "ignoreWords": [],
     "import": []
